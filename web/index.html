@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CF 用户分析 · 总览</title>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --card-bg: #ffffff;
+            --text: #1d1d1f;
+            --secondary-text: #86868b;
+            --border: #e5e5ea;
+            --hover-bg: #f9f9fd;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 36px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+        }
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 28px;
+            letter-spacing: -0.8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+        th {
+            text-align: left;
+            font-weight: 500;
+            color: var(--secondary-text);
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+        td {
+            padding: 14px 10px;
+            border-bottom: 1px solid #f0f0f5;
+            vertical-align: middle;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .handle a {
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .rating {
+            font-weight: 700
+        }
+        tr:hover td {
+            background: var(--hover-bg);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>📊 Codeforces 用户总览</h1>
+    <table>
+        <thead>
+        <tr>
+            <th></th>
+            <th>ID</th>
+            <th>等级分</th>
+            <th>头衔</th>
+            <th>总比赛</th>
+            <th>最高分</th>
+            <th>近180天比赛</th>
+            <th>近180天最高</th>
+        </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    const RATING_COLORS = [
+        { min: 3000, color: '#FF0000' },
+        { min: 2600, max: 2999, color: '#FF0000' },
+        { min: 2400, max: 2599, color: '#FF8C00' },
+        { min: 2300, max: 2399, color: '#FF8C00' },
+        { min: 2100, max: 2299, color: '#FFCC00' },
+        { min: 1900, max: 2099, color: '#AA00AA' },
+        { min: 1600, max: 1899, color: '#0000FF' },
+        { min: 1400, max: 1599, color: '#03A89E' },
+        { min: 1200, max: 1399, color: '#008000' },
+        { min: 0,   max: 1199, color: '#808080' }
+    ];
+
+    function getCfColor(rating) {
+        for (const range of RATING_COLORS) {
+            if (rating >= range.min && rating <= (range.max ?? Infinity)) {
+                return range.color;
+            }
+        }
+        return '#808080';
+    }
+
+    fetch('data.json')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('tableBody');
+            data.users.sort((a, b) => b.rating - a.rating);
+            data.users.forEach(u => {
+                const color = getCfColor(u.rating);
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><img class="avatar" src="${u.avatar}" alt="${u.handle}"></td>
+                    <td class="handle"><a href="user.html?handle=${u.handle}" style="color:${color}">${u.handle}</a></td>
+                    <td class="rating" style="color:${color}">${u.rating}</td>
+                    <td style="color:${color};font-weight:500">${u.rank}</td>
+                    <td>${u.total_contests}</td>
+                    <td style="color:${getCfColor(u.maxRating)};font-weight:600">${u.maxRating}</td>
+                    <td>${u.recent_180d_contests}</td>
+                    <td style="color:${getCfColor(u.recent_180d_max_rating)};font-weight:600">${u.recent_180d_max_rating}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+</script>
+</body>
+</html>

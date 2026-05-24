@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户比赛详情</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script>
+        if (typeof echarts === 'undefined') {
+            document.write('<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"><\/script>');
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #f5f5f7;
+            --card-bg: #ffffff;
+            --inner-card: #fbfbfd;
+            --text: #1d1d1f;
+            --secondary: #6e6e73;
+            --border: #e5e5ea;
+            --accent: #0071e3;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+        }
+        .back {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            display: inline-block;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--inner-card);
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 32px;
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+        .card img.user-photo {
+            width: 104px;
+            height: 104px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border);
+        }
+        .card .info h2 {
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: -0.6px;
+        }
+        .card .info .meta {
+            margin-top: 12px;
+            color: var(--secondary);
+            font-size: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .meta span {
+            white-space: nowrap;
+        }
+        h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 28px 0 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            font-weight: 500;
+            color: #86868b;
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #f0f0f5;
+            vertical-align: middle;
+        }
+        .tag-ok { color: #34c759; font-weight: 600; }
+        .post-solved { color: #ff9f0a; font-style: italic; }
+        .delta-positive { color: #34c759; font-weight: 600; }
+        .delta-negative { color: #ff3b30; font-weight: 600; }
+        .tabs {
+            margin: 20px 0;
+            display: flex;
+            gap: 8px;
+        }
+        .tabs button {
+            background: #e5e5ea;
+            border: none;
+            padding: 9px 20px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text);
+        }
+        .tabs button.active {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,113,227,0.3);
+        }
+        .chart {
+            width: 100%;
+            height: 420px;
+            margin-top: 12px;
+        }
+        .error-msg {
+            color: #ff3b30;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a class="back" href="index.html">← 返回总览</a>
+    <div id="userCard" class="card"></div>
+
+    <h3>📅 比赛记录</h3>
+    <div id="contestTable"></div>
+
+    <h3>📊 通过题目难度分布</h3>
+    <div class="tabs">
+        <button id="btnAll" class="active">全部</button>
+        <button id="btn1Y">最近一年</button>
+        <button id="btn180d">最近180天</button>
+        <button id="btn30d">最近30天</button>
+    </div>
+    <div id="problemChart" class="chart"></div>
+</div>
+
+<script>
+    /* ---------- CF 等级颜色映射 ---------- */
+    const RATING_COLORS = [
+        { min: 3000, color: '#FF0000' },
+        { min: 2600, max: 2999, color: '#FF0000' },
+        { min: 2400, max: 2599, color: '#FF8C00' },
+        { min: 2300, max: 2399, color: '#FF8C00' },
+        { min: 2100, max: 2299, color: '#FFCC00' },
+        { min: 1900, max: 2099, color: '#AA00AA' },
+        { min: 1600, max: 1899, color: '#0000FF' },
+        { min: 1400, max: 1599, color: '#03A89E' },
+        { min: 1200, max: 1399, color: '#008000' },
+        { min: 0,   max: 1199, color: '#808080' }
+    ];
+
+    function getCfColor(rating) {
+        for (const range of RATING_COLORS) {
+            if (rating >= range.min && rating <= (range.max ?? Infinity)) {
+                return range.color;
+            }
+        }
+        return '#808080';
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const handle = params.get('handle') || 'tourist';
+
+    if (typeof echarts === 'undefined') {
+        document.body.innerHTML = '<div class="container"><h2>ECharts 图表库加载失败，请刷新重试</h2></div>';
+        throw new Error('ECharts not loaded');
+    }
+
+    fetch('data.json')
+        .then(r => {
+            if (!r.ok) throw new Error('data.json 加载失败');
+            return r.json();
+        })
+        .then(data => {
+            const user = data.users.find(u => u.handle === handle);
+            const detail = data.user_details[handle];
+            if (!user || !detail) {
+                document.body.innerHTML = '<div class="container"><h2>用户不存在</h2></div>';
+                return;
+            }
+
+            const color = getCfColor(user.rating);
+            const photoUrl = user.titlePhoto || user.avatar;
+            // 用户卡片
+            document.getElementById('userCard').innerHTML = `
+                <img class="user-photo" src="${photoUrl}" alt="${handle}">
+                <div class="info">
+                    <h2 style="color:${color}">${handle}</h2>
+                    <div class="meta">
+                        <span style="color:${color}; font-weight:600">${user.rank}</span>
+                        <span>当前：<strong style="color:${color}">${user.rating}</strong></span>
+                        <span>最高：<strong>${user.maxRating}</strong></span>
+                        <span>比赛场次：${user.total_contests}</span>
+                    </div>
+                </div>
+            `;
+
+            // 比赛记录表格
+            const contests = (detail.contests || []).slice().reverse();
+            let html = `<table><thead><tr>
+                <th>比赛</th><th>日期</th><th>赛前分</th><th>赛后分</th><th>变化</th>
+                <th>排名</th><th>赛中通过</th><th>赛后补题</th>
+            </tr></thead><tbody>`;
+
+            if (contests.length === 0) {
+                html += `<tr><td colspan="8" style="text-align:center;color:#86868b;padding:30px;">暂无比赛记录</td></tr>`;
+            } else {
+                contests.forEach(c => {
+                    const oldColor = getCfColor(c.old_rating);
+                    const newColor = getCfColor(c.new_rating);
+                    const delta = c.new_rating - c.old_rating;
+                    const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+                    const deltaClass = delta >= 0 ? 'delta-positive' : 'delta-negative';
+
+                    const solve = (c.problem_results || [])
+                        .map(p => `<span class="tag-ok">${p.index}</span>`)
+                        .join(' ') || '—';
+                    const post = (c.post_contest_solved || []).length
+                        ? c.post_contest_solved.map(p => `<span class="post-solved">${p}</span>`).join(', ')
+                        : '—';
+
+                    html += `<tr>
+                        <td>${c.contest_name}</td>
+                        <td>${new Date(c.start_time * 1000).toLocaleDateString('zh-CN')}</td>
+                        <td style="color:${oldColor}; font-weight:600">${c.old_rating}</td>
+                        <td style="color:${newColor}; font-weight:600">${c.new_rating}</td>
+                        <td class="${deltaClass}">${deltaStr}</td>
+                        <td>#${c.rank}</td>
+                        <td>${solve}</td>
+                        <td>${post}</td>
+                    </tr>`;
+                });
+            }
+            html += '</tbody></table>';
+            document.getElementById('contestTable').innerHTML = html;
+
+            // ---------- 难度分布直方图 ----------
+            const stats = detail.problem_stats || {};
+            const categories = ['800-1000','1001-1200','1201-1400','1401-1600','1601-1800',
+                '1801-2000','2001-2200','2201-2400','2400+'];
+            const probChart = echarts.init(document.getElementById('problemChart'));
+
+            function renderProblemChart(key) {
+                const data = stats[key] || new Array(9).fill(0);
+                probChart.setOption({
+                    tooltip: {},
+                    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+                    xAxis: { type: 'category', data: categories },
+                    yAxis: { type: 'value', name: '通过题数' },
+                    series: [{
+                        type: 'bar',
+                        data: data,
+                        itemStyle: {
+                            color: '#0071e3',
+                            borderRadius: [8, 8, 0, 0]
+                        }
+                    }]
+                });
+            }
+
+            renderProblemChart('all');
+
+            // Tab 切换
+            const tabs = {
+                all: document.getElementById('btnAll'),
+                last_1year: document.getElementById('btn1Y'),
+                last_180d: document.getElementById('btn180d'),
+                last_30d: document.getElementById('btn30d')
+            };
+            let activeTab = 'all';
+            function setActive(key) {
+                if (activeTab === key) return;
+                tabs[activeTab].classList.remove('active');
+                tabs[key].classList.add('active');
+                activeTab = key;
+                renderProblemChart(key);
+            }
+            tabs.all.addEventListener('click', () => setActive('all'));
+            tabs.last_1year.addEventListener('click', () => setActive('last_1year'));
+            tabs.last_180d.addEventListener('click', () => setActive('last_180d'));
+            tabs.last_30d.addEventListener('click', () => setActive('last_30d'));
+
+            window.addEventListener('resize', () => {
+                probChart.resize();
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            document.querySelector('.container').insertAdjacentHTML('afterbegin',
+                `<div class="error-msg">数据加载失败：${err.message}</div>`);
+        });
+</script>
+</body>
+</html>
