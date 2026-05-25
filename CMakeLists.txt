@@ -18,12 +18,6 @@ if(NOT EXISTS "${CURL_LIBRARY}")
     message(FATAL_ERROR "找不到 curl 库文件: ${CURL_LIBRARY}")
 endif()
 
-# 将 curl 库添加到目标链接
-# 注意：链接时可能还需要系统库 ws2_32 等，
-# 但 libcurl.dll.a 通常已包含导入信息，一般只需链接该库即可。
-# 若链接时报缺少符号，再补充： -lws2_32 -lwldap32 -lbcrypt
-# -------------------------------------
-
 # 添加 cJSON 库
 add_library(cjson lib/cJSON.c lib/cJSON.h)
 target_include_directories(cjson PUBLIC lib)
