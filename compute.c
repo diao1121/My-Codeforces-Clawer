@@ -34,7 +34,6 @@ int max_rating_180d(cJSON *rating_array) {
     return max_r;
 }
 
-// 添加一个静态辅助函数，用于计算 rating 对应的桶索引
 static int get_bucket_index(int rating) {
     if (rating >= 2400) return 8;
     if (rating >= 2200) return 7;
@@ -47,18 +46,17 @@ static int get_bucket_index(int rating) {
     return 0; // 800 - 1000
 }
 
-// 统计通过题目难度分布，按四个时间段，去重 (contestId, index)
-void count_problems_by_rating(cJSON *submissions, int *buckets_all,
-                               int *buckets_1y, int *buckets_180d,
-                               int *buckets_30d, int num_buckets) {
+void count_problems_by_rating(cJSON *submissions,
+                               int *buckets_all, int *buckets_1y,
+                               int *buckets_180d, int *buckets_30d,
+                               int num_buckets) {
     if (!cJSON_IsArray(submissions)) return;
     memset(buckets_all, 0, num_buckets * sizeof(int));
     memset(buckets_1y, 0, num_buckets * sizeof(int));
     memset(buckets_180d, 0, num_buckets * sizeof(int));
     memset(buckets_30d, 0, num_buckets * sizeof(int));
 
-    // 记录已通过的题目 (contestId, index) -> 集合
-    // 用链表或二维数组，这里简单用 10000 个槽位，每个槽位26位标记
+    /* 简易去重：假设比赛 ID < 10000，使用位掩码按 (contestId, index) 去重 */
     #define MAX_CONTEST 10000
     unsigned solved_all[MAX_CONTEST] = {0};
     unsigned solved_1y[MAX_CONTEST] = {0};
@@ -77,20 +75,21 @@ void count_problems_by_rating(cJSON *submissions, int *buckets_all,
         cJSON *rating_obj = cJSON_GetObjectItem(problem, "rating");
         if (!cid_obj || !idx_obj) continue;
         int rating = rating_obj ? rating_obj->valueint : 0;
+        // 跳过未设置难度的题目（rating = 0），避免被错误归入 800-1000 桶
+        if (rating <= 0) continue;
+
         int cid = cid_obj->valueint;
-        int idx = idx_obj->valuestring[0] - 'A'; // 只处理 A-Z，假设有效
+        int idx = idx_obj->valuestring[0] - 'A';
         if (idx < 0 || idx >= 26) continue;
 
         unsigned bit = 1u << idx;
         int b = get_bucket_index(rating);
 
-        // 所有时间
         if (!(solved_all[cid % MAX_CONTEST] & bit)) {
             solved_all[cid % MAX_CONTEST] |= bit;
             buckets_all[b]++;
         }
 
-        // 时间筛选
         cJSON *time_obj = cJSON_GetObjectItem(sub, "creationTimeSeconds");
         if (!time_obj) continue;
         long long ts = time_obj->valueint;
